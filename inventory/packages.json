@@ -1,0 +1,421 @@
+{
+  "frozen_at": "2026-11-07",
+  "registry_url": "https://packages.redhat.com/api/pulp-content/lightwell/javascript/validated",
+  "upstream_registry_url": "https://registry.npmjs.org",
+  "attestation_oci_prefix": "quay.io/redhat-user-workloads/lightwell-javascript-tenant/javascript-validated/javascript-validated-build",
+  "cosign_public_key": "keys/redhat-release3.pub",
+  "cosign_public_key_source": "https://security.access.redhat.com/data/63405576.txt",
+  "sbom_path_in_tarball": "package/sboms/redhat.spdx.json",
+  "packages": [
+    {
+      "name": "async",
+      "version": "3.2.5",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "async",
+      "version": "3.2.6",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "better-sqlite3",
+      "version": "11.8.1",
+      "native_tier": "C",
+      "node_major": 20,
+      "kind": "package",
+      "esm": false,
+      "platform_package": "@lightwell/better-sqlite3-linux-x64@11.8.1"
+    },
+    {
+      "name": "@lightwell/better-sqlite3-linux-x64",
+      "version": "11.8.1",
+      "native_tier": "platform",
+      "node_major": 20,
+      "kind": "platform",
+      "parent": "better-sqlite3@11.8.1",
+      "esm": false
+    },
+    {
+      "name": "better-sqlite3",
+      "version": "13.0.3",
+      "native_tier": "C",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false,
+      "platform_package": "@lightwell/better-sqlite3-linux-x64@13.0.3"
+    },
+    {
+      "name": "@lightwell/better-sqlite3-linux-x64",
+      "version": "13.0.3",
+      "native_tier": "platform",
+      "node_major": 22,
+      "kind": "platform",
+      "parent": "better-sqlite3@13.0.3",
+      "esm": false
+    },
+    {
+      "name": "bluebird",
+      "version": "3.7.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "bluebird",
+      "version": "3.7.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "body-parser",
+      "version": "1.20.3",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "body-parser",
+      "version": "1.20.9",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "body-parser",
+      "version": "2.4.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "chalk",
+      "version": "6.0.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": true
+    },
+    {
+      "name": "chalk",
+      "version": "6.0.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": true
+    },
+    {
+      "name": "commander",
+      "version": "14.0.3",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "commander",
+      "version": "15.0.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "content-type",
+      "version": "1.0.5",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "content-type",
+      "version": "2.1.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "cors",
+      "version": "2.8.6",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "debug",
+      "version": "4.4.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "debug",
+      "version": "4.4.3",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "depd",
+      "version": "2.0.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "esbuild",
+      "version": "0.28.0",
+      "native_tier": "B",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false,
+      "platform_package": "@lightwell/esbuild-linux-x64@0.28.0"
+    },
+    {
+      "name": "@lightwell/esbuild-linux-x64",
+      "version": "0.28.0",
+      "native_tier": "platform",
+      "node_major": 22,
+      "kind": "platform",
+      "parent": "esbuild@0.28.0",
+      "esm": false
+    },
+    {
+      "name": "esbuild",
+      "version": "0.28.2",
+      "native_tier": "B",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false,
+      "platform_package": "@lightwell/esbuild-linux-x64@0.28.2"
+    },
+    {
+      "name": "@lightwell/esbuild-linux-x64",
+      "version": "0.28.2",
+      "native_tier": "platform",
+      "node_major": 22,
+      "kind": "platform",
+      "parent": "esbuild@0.28.2",
+      "esm": false
+    },
+    {
+      "name": "express",
+      "version": "4.21.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "express",
+      "version": "4.22.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "express",
+      "version": "4.22.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "express",
+      "version": "4.22.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "express",
+      "version": "5.2.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "express",
+      "version": "5.3.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "lodash",
+      "version": "4.18.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "lodash",
+      "version": "4.18.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "oas-linter",
+      "version": "3.2.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "oas-linter",
+      "version": "3.2.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "on-finished",
+      "version": "2.4.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "qs",
+      "version": "6.17.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "react",
+      "version": "19.3.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "react-dom",
+      "version": "19.3.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "semver",
+      "version": "7.7.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "semver",
+      "version": "7.8.6",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "send",
+      "version": "0.19.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "send",
+      "version": "1.2.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "statuses",
+      "version": "2.0.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "statuses",
+      "version": "2.0.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "typescript",
+      "version": "5.9.3",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "typescript",
+      "version": "7.0.2",
+      "native_tier": "B",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false,
+      "platform_package": "@lightwell/typescript-linux-x64@7.0.2"
+    },
+    {
+      "name": "@lightwell/typescript-linux-x64",
+      "version": "7.0.2",
+      "native_tier": "platform",
+      "node_major": 22,
+      "kind": "platform",
+      "parent": "typescript@7.0.2",
+      "esm": false
+    },
+    {
+      "name": "ws",
+      "version": "8.21.3",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "ws",
+      "version": "8.22.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    }
+  ]
+}
