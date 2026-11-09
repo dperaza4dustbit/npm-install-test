@@ -115,7 +115,7 @@ export function parsePlatformPackage(spec) {
 
 /**
  * Community package name that unpatched JS still require()s for a Lightwell
- * platform package (esbuild / typescript native loaders).
+ * platform package (esbuild lib/main.js still hardcodes @esbuild/*).
  */
 export function communityNativeAlias(lightwellName) {
   let m = /^@lightwell\/esbuild-(.+)$/.exec(lightwellName);
@@ -127,7 +127,7 @@ export function communityNativeAlias(lightwellName) {
 
 /**
  * Dependencies for installing a parent package so @lightwell platform binaries
- * resolve, including npm aliases for community require() paths.
+ * resolve, including npm aliases for community require() paths (Tier B).
  */
 export function installDepsForPackage(pkg) {
   const deps = { [pkg.name]: pkg.version };

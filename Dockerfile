@@ -1,5 +1,5 @@
 # Customer-style install/provenance/smoke harness for Lightwell validated npm.
-# Dual-registry proxy (Lightwell → npmjs) for Pulp-safe tarball auth.
+# Talks to a separate dual-registry proxy container (see Dockerfile.proxy).
 # Default Node is 22; Node 20 is also installed for packages that need it.
 FROM registry.access.redhat.com/ubi9/ubi:latest
 
@@ -35,13 +35,11 @@ RUN curl -fsSL -o /usr/local/bin/cosign \
 
 COPY . /opt/npm-install-test
 WORKDIR /opt/npm-install-test
-RUN chmod +x scripts/*.sh harness/*.mjs proxy/lightwell-auth-proxy.js
+RUN chmod +x scripts/*.sh harness/*.mjs
 
 ENV PATH="/usr/local/lib/nodejs/node22/bin:/usr/local/bin:${PATH}" \
-    NPM_PROXY_URL="http://127.0.0.1:4874" \
-    LIGHTWELL_AUTH_PROXY_PORT="4874" \
+    NPM_PROXY_URL="http://npm-install-proxy:4874" \
     PROXY_MISS_LOG="/tmp/npm-proxy-misses.jsonl" \
-    LIGHTWELL_REGISTRY_URL="https://packages.redhat.com/api/pulp-content/lightwell/javascript/validated" \
     ATTESTATION_OCI_PREFIX="quay.io/redhat-user-workloads/lightwell-javascript-tenant/javascript-validated/javascript-validated-build" \
     PROVENANCE_ALLOW_UNSIGNED="1"
 

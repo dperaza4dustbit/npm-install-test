@@ -26,6 +26,7 @@ const natives = inv.packages.filter((p) => p.kind === 'package' && (p.native_tie
 const self = fileURLToPath(import.meta.url);
 const currentMajor = Number(process.versions.node.split('.')[0]);
 const only = process.env.ONLY_PACKAGE;
+const nodePinned = process.env.NPM_INSTALL_TEST_NODE_PINNED === '1';
 
 async function installOne(pkg) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `npm-bin-${pkg.name.replace(/[/]/g, '_')}-`));
@@ -62,6 +63,8 @@ for (const p of natives) {
     console.log(`\n[binaries] ${label} (Node ${wantMajor})`);
     try {
       run(nodeBinForMajor(wantMajor), [self], {
+        stdio: 'inherit',
+        encoding: undefined,
         env: {
           ...process.env,
           ONLY_PACKAGE: label,
@@ -70,7 +73,7 @@ for (const p of natives) {
         },
       });
       passed += 1;
-      console.log(`  OK ${label}`);
+      // Child printed detail / OK lines; parent prints the suite summary.
     } catch (err) {
       failed += 1;
       console.error(`  FAIL ${label}: ${err.message || err}`);
@@ -78,7 +81,9 @@ for (const p of natives) {
     continue;
   }
 
-  console.log(`\n[binaries] ${label} (node_major=${p.node_major})`);
+  if (!nodePinned) {
+    console.log(`\n[binaries] ${label} (node_major=${p.node_major})`);
+  }
   try {
     const dir = await installOne(p);
     const platform = p.platform_package;
@@ -127,6 +132,11 @@ for (const p of natives) {
     failed += 1;
     console.error(`  FAIL ${label}: ${err.message || err}`);
   }
+}
+
+if (nodePinned) {
+  if (failed) process.exit(1);
+  process.exit(0);
 }
 
 console.log('\n========== BINARIES SUMMARY ==========');

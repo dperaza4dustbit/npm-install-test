@@ -31,6 +31,9 @@ const inv = loadInventory();
 const only = process.env.ONLY_PACKAGE; // optional name filter
 const self = fileURLToPath(import.meta.url);
 const currentMajor = Number(process.versions.node.split('.')[0]);
+// Set by parent when re-execing under a matching Node ABI — child prints smokes
+// only; parent owns the suite header and final summary.
+const nodePinned = process.env.NPM_INSTALL_TEST_NODE_PINNED === '1';
 
 async function loadModule(dir, name, esm) {
   const req = createRequire(path.join(dir, 'package.json'));
@@ -55,7 +58,11 @@ for (const pkg of inv.packages) {
     console.log(`\n[functional] ${label} (Node ${wantMajor})`);
     try {
       const nodeBin = nodeBinForMajor(wantMajor);
+      // Inherit stdio so the child's smoke lines show up (default spawnSync
+      // capture would hide ✓ smoke 1/5 … under the re-exec).
       run(nodeBin, [self], {
+        stdio: 'inherit',
+        encoding: undefined,
         env: {
           ...process.env,
           ONLY_PACKAGE: label,
@@ -64,7 +71,7 @@ for (const pkg of inv.packages) {
         },
       });
       ran += 1;
-      console.log(`  OK ${label}`);
+      // Child printed ✓ smoke / OK lines; parent prints the final summary.
     } catch (err) {
       failed += 1;
       console.error(`  FAIL ${label}: ${err && err.stack ? err.stack : err}`);
@@ -72,7 +79,9 @@ for (const pkg of inv.packages) {
     continue;
   }
 
-  console.log(`\n[functional] ${label}`);
+  if (!nodePinned) {
+    console.log(`\n[functional] ${label}`);
+  }
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-fn-'));
   const deps = installDepsForPackage(pkg);
@@ -121,6 +130,12 @@ for (const pkg of inv.packages) {
     failed += 1;
     console.error(`  FAIL ${label}: ${err && err.stack ? err.stack : err}`);
   }
+}
+
+if (nodePinned) {
+  // Nested ABI re-exec: exit status only; parent emits the suite summary.
+  if (failed) process.exit(1);
+  process.exit(0);
 }
 
 const total = ran + failed;

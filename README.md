@@ -2,9 +2,14 @@
 
 Customer-style harness for Red Hat Lightwell **validated** npm packages.
 
-It starts a **dual-registry proxy** (Lightwell first, npmjs.org on miss), installs the frozen inventory through that proxy, runs five functional smokes per parent package, loads `@lightwell/*` native binaries, and verifies SBOM + cosign attestations.
+`./scripts/run.sh` starts two containers:
 
-Customer proxy guide: [`docs/customer-verdaccio.md`](docs/customer-verdaccio.md) (filename kept for history; the recommended proxy is `proxy/lightwell-auth-proxy.js`).
+1. **npm-install-proxy** — dual-registry proxy (Lightwell first, configurable upstream on miss; default `registry.npmjs.org`)
+2. **npm-install-test** — installs the frozen inventory through that proxy, runs functional smokes, loads `@lightwell/*` natives, verifies SBOM + cosign attestations
+
+Pulp credentials stay on the proxy container only. The test image has no Lightwell SA.
+
+Customer / TP notes: [`docs/customer-verdaccio.md`](docs/customer-verdaccio.md). Pulp packument gap: [`docs/pulp-npm-packument-requirement.md`](docs/pulp-npm-packument-requirement.md).
 
 ## What it covers
 
@@ -12,10 +17,10 @@ Customer proxy guide: [`docs/customer-verdaccio.md`](docs/customer-verdaccio.md)
 |------|------|
 | **functional** | 5 smokes × every frozen **parent** package/version. Tier B/C also assert `@lightwell/*` pull/load |
 | **binaries** | Focused Tier B/C re-check: load/run `@lightwell/*` |
-| **install** | One tree with npm aliases for all parent versions via the proxy; summarizes npmjs misses |
+| **install** | One tree with npm aliases for all parent versions via the proxy; summarizes upstream misses |
 | **provenance** | SBOM hard-fail + Quay attestation subject digest match; DSSE/cosign when present (see unsigned note) |
 
-Frozen inventory: [`inventory/packages.json`](inventory/packages.json) (50 entries: 45 parents + 5 `@lightwell/*`).
+Frozen inventory: [`inventory/packages.json`](inventory/packages.json).
 
 ## Credentials
 
@@ -23,10 +28,9 @@ Frozen inventory: [`inventory/packages.json`](inventory/packages.json) (50 entri
 export SERVICE_ACCOUNT_USERNAME='...'
 export SERVICE_ACCOUNT_PASSWORD='...'
 # Or: SA_ENV_FILE=/path/to/sa.env ./scripts/run.sh all
-# (preferred for JWT passwords that break shell `source`)
 ```
 
-Pulp read-only credentials for the Lightwell validated content URL. Injected into the proxy only — not into client `.npmrc`.
+Injected into the **proxy** container only.
 
 ## Build and run
 
@@ -35,38 +39,47 @@ Pulp read-only credentials for the Lightwell validated content URL. Injected int
 ./scripts/run.sh all
 ```
 
-Other modes: `functional` | `binaries` | `install` | `provenance` | `proxy`.
+Other modes: `functional` | `binaries` | `install` | `provenance` | `proxy` (proxy container only, foreground).
 
 ```bash
 ONLY_PACKAGE=cors@2.8.6 ./scripts/run.sh functional
 ```
 
-Optional env: `LIGHTWELL_REGISTRY_URL`, `ATTESTATION_OCI_PREFIX`, `ONLY_PACKAGE`, `NODE_MAJOR`, `LIGHTWELL_AUTH_PROXY_PORT` (default `4874`).
+Optional env:
 
-## Proxy
+| Variable | Default | Where |
+|----------|---------|--------|
+| `UPSTREAM_REGISTRY_URL` | `https://registry.npmjs.org` | proxy (customer registry later) |
+| `LIGHTWELL_REGISTRY_URL` | Lightwell validated content URL | proxy |
+| `LIGHTWELL_AUTH_PROXY_PORT` | `4874` | host publish + proxy |
+| `ATTESTATION_OCI_PREFIX` | Quay validated build prefix | test |
+| `ONLY_PACKAGE` / `NODE_MAJOR` | unset | test |
 
-[`proxy/lightwell-auth-proxy.js`](proxy/lightwell-auth-proxy.js) — Lightwell (Basic auth + safe redirects) then npmjs.
+## Proxy image (TP seed)
 
-**Verdaccio note:** Verdaccio alone is a poor fit for Pulp because it re-downloads absolute `packages.redhat.com` tarball URLs without uplink credentials (401 on `.tgz`). See the customer doc.
+[`Dockerfile.proxy`](Dockerfile.proxy) + [`proxy/lightwell-auth-proxy.js`](proxy/lightwell-auth-proxy.js).
+
+```bash
+./scripts/run.sh proxy
+# .npmrc → registry=http://127.0.0.1:4874/
+```
+
+Quay publish path TBD. Local tags: `npm-install-proxy:latest`, `npm-install-test:latest`.
 
 ## Cosign public key
 
-Bundled: [`keys/redhat-release3.pub`](keys/redhat-release3.pub) (release key 3).
-
-Attestation OCI tags currently publish a bare in-toto Statement (subject digest matches the `.tgz`). Cosign DSSE signatures are not present yet; the image defaults `PROVENANCE_ALLOW_UNSIGNED=1` so subject checks still gate the suite. Unset it (or set `0`) once Lightwell publishes signed DSSE envelopes.
+Bundled: [`keys/redhat-release3.pub`](keys/redhat-release3.pub). Test image defaults `PROVENANCE_ALLOW_UNSIGNED=1` until signed DSSE envelopes are published.
 
 ## Layout
 
 ```
-inventory/packages.json
-keys/redhat-release3.pub
+Dockerfile                 # test harness
+Dockerfile.proxy           # slim dual-registry proxy
 proxy/lightwell-auth-proxy.js
-docs/customer-verdaccio.md
+inventory/packages.json
 harness/
 tests/functional/suites.mjs
-fixture/package.json
-scripts/build.sh
-scripts/run.sh
-scripts/entrypoint.sh
-Dockerfile
+scripts/build.sh           # builds both images
+scripts/run.sh             # network + proxy + test
+scripts/entrypoint.sh      # test container only
 ```

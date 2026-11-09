@@ -88,8 +88,16 @@ function verifySbom(name, version, tgz, members) {
   // package/package.json in the same tarball.
   const purlHits = pkgs.filter((p) => {
     const refs = p.externalRefs || [];
-    const needle = name.startsWith('@') ? `pkg:npm/${name}@` : `pkg:npm/${name}@`;
-    return refs.some((r) => typeof r.referenceLocator === 'string' && r.referenceLocator.includes(needle));
+    // Spec: pkg:npm/%40scope/name@version. Also accept legacy unencoded
+    // pkg:npm/@scope/name@version from tarballs published before encoding.
+    const needles = name.startsWith('@')
+      ? [`pkg:npm/%40${name.slice(1)}@`, `pkg:npm/${name}@`]
+      : [`pkg:npm/${name}@`];
+    return refs.some(
+      (r) =>
+        typeof r.referenceLocator === 'string' &&
+        needles.some((needle) => r.referenceLocator.includes(needle)),
+    );
   });
   const nameHits = pkgs.filter(
     (p) => p.name === name || p.name === `package/${name}` || (p.name || '').endsWith(`/${name}`),

@@ -63,7 +63,7 @@ Abbreviated install metadata for a version must carry dependency fields and a tr
 }
 ```
 
-Tier B optional natives (after Lightwell publishes under community names) need the same for the main package, e.g. `esbuild` listing `@esbuild/linux-x64` in `optionalDependencies` with a correct `dist` on that platform package’s own packument.
+Tier B optional natives need the same for the main package, e.g. `esbuild` listing `@lightwell/esbuild-linux-x64` in `optionalDependencies` with a correct `dist` on that platform package’s own packument.
 
 ## Example: Pulp today (actual)
 
@@ -137,16 +137,14 @@ Same check for a Tier B main package: `optionalDependencies` must list the platf
 [`lightwell-auth-proxy.js`](../proxy/lightwell-auth-proxy.js) is **not** the long-term customer contract. Until Pulp meets the requirement above it:
 
 1. Detects stub version objects (`_id` / `dist` / optional `name`+`version` only).
-2. Fills dependency metadata from npmjs (or Lightwell version docs when present).
-3. Keeps the Lightwell tarball URL when the validated `.tgz` exists.
-4. Recomputes `dist.integrity` from the downloaded Lightwell tarball bytes.
-5. Rewrites absolute tarball hosts onto the proxy (also needed so credentials work; separate from stubs).
-6. Remaps community native names to `@lightwell/*` where Lightwell still publishes Tier B under `@lightwell` (separate product change; goes away when Tier B uses `@esbuild` / `@typescript`).
+2. Downloads the Lightwell `.tgz` for that version and copies registry fields from `package/package.json` inside it (deps/optionals match what was published — not community npmjs metadata).
+3. Recomputes `dist.integrity` from those same tarball bytes.
+4. Rewrites absolute tarball hosts onto the proxy (also needed so credentials work; separate from stubs).
+5. Optionally merges npmjs packument **versions** so dual-registry range resolution can still pick community versions Lightwell does not host (validated version docs still win on overlay).
 
-When Pulp serves full packuments with correct integrity, remove steps 1–4 (and native remap once Tier B naming lands). Keep auth, redirect handling, and optional npmjs 404 fallback.
+When Pulp serves full packuments with correct integrity, remove steps 1–3. Keep auth, redirect handling, optional npmjs 404 fallback, and (if still desired) version-set merge for dual-registry.
 
 ## Out of scope here
 
 - Signing / DSSE attestations (release image / `slan-cuan`).
 - SBOM richness inside the `.tgz` (`npm-builder`).
-- Tier B platform package naming (`calunga-javascript` recipes).
