@@ -1,0 +1,29 @@
+# Slim dual-registry proxy for Lightwell validated npm (tech-preview style).
+# Prefer Lightwell Pulp; on miss fall back to UPSTREAM_REGISTRY_URL.
+FROM registry.access.redhat.com/ubi9/ubi:latest
+
+ARG NODE22_VERSION=22.14.0
+
+USER root
+RUN dnf -y install ca-certificates tar gzip \
+    && dnf clean all
+
+RUN mkdir -p /usr/local/lib/nodejs \
+    && curl -fsSL "https://nodejs.org/dist/v${NODE22_VERSION}/node-v${NODE22_VERSION}-linux-x64.tar.gz" \
+      | tar -xz -C /usr/local/lib/nodejs \
+    && ln -sfn "/usr/local/lib/nodejs/node-v${NODE22_VERSION}-linux-x64" /usr/local/lib/nodejs/node22 \
+    && ln -sfn /usr/local/lib/nodejs/node22/bin/node /usr/local/bin/node
+
+COPY proxy/lightwell-auth-proxy.js /opt/lightwell-npm-proxy/lightwell-auth-proxy.js
+
+ENV PATH="/usr/local/lib/nodejs/node22/bin:/usr/local/bin:${PATH}" \
+    LIGHTWELL_AUTH_PROXY_BIND="0.0.0.0" \
+    LIGHTWELL_AUTH_PROXY_PORT="4874" \
+    PROXY_PUBLIC_URL="http://127.0.0.1:4874" \
+    UPSTREAM_REGISTRY_URL="https://registry.npmjs.org" \
+    LIGHTWELL_REGISTRY_URL="https://packages.redhat.com/api/pulp-content/lightwell/javascript/validated" \
+    PROXY_MISS_LOG="/tmp/npm-proxy-misses.jsonl"
+
+EXPOSE 4874
+WORKDIR /opt/lightwell-npm-proxy
+CMD ["node", "lightwell-auth-proxy.js"]
