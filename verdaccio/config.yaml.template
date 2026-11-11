@@ -7,7 +7,7 @@
 #   npm client → Verdaccio → lightwell-auth-proxy → packages.redhat.com
 #                         ↘ npmjs.org
 #
-# See proxy/lightwell-auth-proxy.js and docs/customer-verdaccio.md.
+# See proxy/lightwell-auth-proxy.js and docs/customer-internal.md.
 
 storage: ./storage
 

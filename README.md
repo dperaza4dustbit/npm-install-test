@@ -9,7 +9,7 @@ Customer-style harness for Red Hat Lightwell **validated** npm packages.
 
 Pulp credentials stay on the proxy container only. The test image has no Lightwell SA.
 
-Customer / TP notes: [`docs/customer-verdaccio.md`](docs/customer-verdaccio.md). Pulp packument gap: [`docs/pulp-npm-packument-requirement.md`](docs/pulp-npm-packument-requirement.md).
+Customer docs brief: [`docs/customer-external-recommendations.md`](docs/customer-external-recommendations.md). Internal TP / proxy notes: [`docs/customer-internal.md`](docs/customer-internal.md). Pulp packument gap: [`docs/pulp-npm-packument-requirement.md`](docs/pulp-npm-packument-requirement.md).
 
 ## What it covers
 
