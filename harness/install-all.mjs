@@ -2,6 +2,9 @@
 /**
  * Install every frozen package version (via npm aliases) through the local proxy.
  * Fails if any dependency cannot be resolved. Prints proxy miss summary.
+ *
+ * Aliases are generated from inventory/packages.json (not a hand-edited fixture)
+ * so new inventory entries cannot drift out of install-all.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,24 +14,49 @@ import { ROOT, loadInventory, runWithRetries, npmrcForProxy } from './lib.mjs';
 const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:4874';
 const MISS_LOG = process.env.PROXY_MISS_LOG || '/tmp/npm-proxy-misses.jsonl';
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-install-all-'));
+const inv = loadInventory();
 
-const fixtureSrc = path.join(ROOT, 'fixture/package.json');
-fs.copyFileSync(fixtureSrc, path.join(work, 'package.json'));
+function aliasName(name, version) {
+  // npm rejects alias names that start with "_"; strip "@scope/" to "scope_"
+  // so @lightwell/foo@1.0.0 → lightwell_foo_1_0_0 (same as fixture/).
+  return `${name}_${version}`
+    .replace(/^@/, '')
+    .replace(/[^A-Za-z0-9_]/g, '_');
+}
+
+const dependencies = {};
+for (const p of inv.packages) {
+  dependencies[aliasName(p.name, p.version)] = `npm:${p.name}@${p.version}`;
+}
+
+fs.writeFileSync(
+  path.join(work, 'package.json'),
+  `${JSON.stringify(
+    {
+      name: 'npm-install-test-fixture',
+      version: '0.0.0',
+      private: true,
+      description: 'Generated from inventory/packages.json for install-all',
+      dependencies,
+    },
+    null,
+    2,
+  )}\n`,
+);
 fs.writeFileSync(path.join(work, '.npmrc'), npmrcForProxy(PROXY, path.join(work, '.npm-cache')));
 
 console.log(`[install-all] workdir=${work}`);
 console.log(`[install-all] proxy=${PROXY}`);
 console.log(`[install-all] node=${process.version}`);
+console.log(`[install-all] aliases=${Object.keys(dependencies).length}`);
 
 runWithRetries('npm', ['install', '--no-audit', '--no-fund', '--foreground-scripts'], {
   cwd: work,
   env: { ...process.env, npm_config_registry: PROXY },
 });
 
-const inv = loadInventory();
-const parents = inv.packages.filter((p) => p.kind === 'package');
-for (const p of parents) {
-  const alias = `${p.name}_${p.version}`.replace(/[^A-Za-z0-9_]/g, '_');
+for (const p of inv.packages) {
+  const alias = aliasName(p.name, p.version);
   const modPath = path.join(work, 'node_modules', alias);
   if (!fs.existsSync(modPath)) {
     throw new Error(`missing installed alias module: ${alias} (${p.name}@${p.version})`);

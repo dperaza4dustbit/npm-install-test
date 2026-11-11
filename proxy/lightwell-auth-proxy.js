@@ -45,6 +45,18 @@ const UPSTREAM_NPM = (process.env.UPSTREAM_REGISTRY_URL || 'https://registry.npm
 const USER = process.env.SERVICE_ACCOUNT_USERNAME || '';
 const PASS = process.env.SERVICE_ACCOUNT_PASSWORD || '';
 const MISS_LOG = process.env.PROXY_MISS_LOG || '/tmp/npm-proxy-misses.jsonl';
+// Default on: packages.redhat.com CDN can keep serving pre-replace .tgz bytes
+// for a while after ALLOW_CONTENT_REPLACE. Bust query + no-cache so the test
+// harness sees the new artifact. Set PROXY_BYPASS_CDN_CACHE=0 to disable.
+const BYPASS_CDN_CACHE = process.env.PROXY_BYPASS_CDN_CACHE !== '0';
+// Pin Lightwell .tgz bytes in-memory so packument dist.integrity (computed at
+// expand time) matches the later .tgz GET. Without this, CDN bust can make
+// those two hops hash differently → npm EINTEGRITY (seen on body-parser →
+// on-finished). Expand always refreshes the pin; .tgz GETs reuse it.
+const TARBALL_PIN_TTL_MS = Math.max(
+  0,
+  Number(process.env.PROXY_TARBALL_PIN_TTL_MS || 600000),
+);
 
 if (!USER || !PASS) {
   console.error('dual-registry-proxy: SERVICE_ACCOUNT_USERNAME/PASSWORD required');
@@ -54,6 +66,48 @@ if (!USER || !PASS) {
 const basic = Buffer.from(`${USER}:${PASS}`).toString('base64');
 const targetBase = new URL(TARGET + '/');
 const pulpOrigin = `${targetBase.protocol}//${targetBase.host}`;
+
+/** @type {Map<string, { body: Buffer, integrity: string, at: number }>} */
+const tarballPin = new Map();
+
+function pinKeyFromPath(p) {
+  const path = (p || '').split('?')[0];
+  const base = path.split('/').filter(Boolean).pop();
+  return base || path.replace(/^\//, '');
+}
+
+function getPinnedTarball(pathOrUrl) {
+  const key = pinKeyFromPath(pathOrUrl);
+  if (!key || TARBALL_PIN_TTL_MS === 0) return null;
+  const hit = tarballPin.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > TARBALL_PIN_TTL_MS) {
+    tarballPin.delete(key);
+    return null;
+  }
+  return hit;
+}
+
+function setPinnedTarball(pathOrUrl, body) {
+  const key = pinKeyFromPath(pathOrUrl);
+  if (!key || !body || !Buffer.isBuffer(body)) return null;
+  const entry = { body, integrity: sriSha512(body), at: Date.now() };
+  tarballPin.set(key, entry);
+  return entry;
+}
+
+/**
+ * Append a unique query param so Akamai/CDN treats the GET as a new cache key.
+ * Must also run on redirect targets (cdn.*.redhat.com etc.): Location rarely
+ * preserves our `_cb`, and the edge host is not packages.redhat.com — that was
+ * why bust looked like a no-op until TTL expired.
+ */
+function withCdnBust(url) {
+  if (!BYPASS_CDN_CACHE) return url;
+  const u = new URL(url);
+  u.searchParams.set('_cb', `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`);
+  return u.toString();
+}
 
 function defaultPort(u) {
   return u.protocol === 'https:' ? '443' : '80';
@@ -71,9 +125,16 @@ function resolveNpmjs(reqUrl) {
   return new URL((reqUrl || '/').replace(/^\//, ''), UPSTREAM_NPM + '/').toString();
 }
 
-function fetchOnce(url, headers, redirectCount, withBasic) {
+/**
+ * @param {boolean} withBasic - send Pulp Basic auth on packages.redhat.com only
+ * @param {boolean} [bustCache] - CDN bust for this hop and every redirect; defaults
+ *   to withBasic so Lightwell fetches bust and npmjs fallback does not
+ */
+function fetchOnce(url, headers, redirectCount, withBasic, bustCache) {
+  const doBust = bustCache === undefined ? Boolean(withBasic) : Boolean(bustCache);
   return new Promise((resolve, reject) => {
-    const u = new URL(url);
+    const fetchUrl = doBust ? withCdnBust(url) : url;
+    const u = new URL(fetchUrl);
     const lib = u.protocol === 'https:' ? https : http;
     const sameHost = u.hostname === targetBase.hostname;
     const reqHeaders = { ...headers, host: u.host };
@@ -81,6 +142,13 @@ function fetchOnce(url, headers, redirectCount, withBasic) {
       reqHeaders.authorization = `Basic ${basic}`;
     } else {
       delete reqHeaders.authorization;
+    }
+    // Apply no-cache on the edge hop too — that is where stale .tgz lived.
+    // Note: Akamai may still serve path-keyed objects until TTL/purge; bust is best-effort.
+    if (doBust) {
+      reqHeaders['cache-control'] = 'no-cache, no-store, must-revalidate';
+      reqHeaders.pragma = 'no-cache';
+      reqHeaders.expires = '0';
     }
 
     const req = lib.request(
@@ -104,12 +172,21 @@ function fetchOnce(url, headers, redirectCount, withBasic) {
           res.resume();
           const nextHost = new URL(next).hostname;
           const keepBasic = withBasic && nextHost === targetBase.hostname;
-          fetchOnce(next, headers, redirectCount + 1, keepBasic).then(resolve, reject);
+          // Keep doBust across CDN redirects even when Basic auth is dropped.
+          fetchOnce(next, headers, redirectCount + 1, keepBasic, doBust).then(resolve, reject);
           return;
         }
         const chunks = [];
         res.on('data', (c) => chunks.push(c));
         res.on('end', () => {
+          if (doBust && BYPASS_CDN_CACHE) {
+            const edge = res.headers['x-rh-edge-cache-status'] || res.headers['x-cache'] || '';
+            if (edge || u.pathname.endsWith('.tgz')) {
+              console.error(
+                `cdn-fetch status=${status} host=${u.hostname} edge="${edge}" path=${u.pathname}`,
+              );
+            }
+          }
           resolve({ status, headers: res.headers, body: Buffer.concat(chunks) });
         });
       },
@@ -165,6 +242,26 @@ function isPackumentPath(pathOnly) {
   return parts.length === 1; // name
 }
 
+/**
+ * npm often GETs /name/version (or /@scope/name/version) instead of the full
+ * packument. Those must get the same integrity rewrite + tarball pin.
+ */
+function parseVersionMetadataPath(pathOnly) {
+  if (!pathOnly || pathOnly.endsWith('.tgz')) return null;
+  if (pathOnly.startsWith('/-/') || pathOnly.startsWith('/api/')) return null;
+  const parts = pathOnly.replace(/^\//, '').split('/');
+  if (parts[0].startsWith('@')) {
+    if (parts.length === 3 && parts[2] && parts[2] !== '-') {
+      return { name: `${parts[0]}/${parts[1]}`, version: parts[2] };
+    }
+    return null;
+  }
+  if (parts.length === 2 && parts[1] && parts[1] !== '-') {
+    return { name: parts[0], version: parts[1] };
+  }
+  return null;
+}
+
 function tarballPathFromDist(dist, name, ver) {
   if (dist && dist.tarball) {
     try {
@@ -178,20 +275,25 @@ function tarballPathFromDist(dist, name, ver) {
   return `/${name}/-/${filename}`;
 }
 
+function sriSha512(buf) {
+  return 'sha512-' + crypto.createHash('sha512').update(buf).digest('base64');
+}
+
+/**
+ * Fetch a Lightwell .tgz for packument expand and pin the bytes so the client's
+ * subsequent tarball GET cannot race the CDN to a different digest.
+ */
 async function fetchLightwellTarball(dist, name, ver, hdrs) {
   const tbPath = tarballPathFromDist(dist, name, ver);
   try {
     const out = await fetchOnce(resolveLightwell(tbPath), hdrs, 0, true);
     if (out.status !== 200) return null;
-    // Keep raw bytes (already .tgz); do not gunzip.
-    return { path: tbPath, body: out.body };
+    // Keep raw bytes (already .tgz); do not gunzip. Always refresh pin.
+    const pin = setPinnedTarball(tbPath, out.body);
+    return { path: tbPath, body: out.body, integrity: pin ? pin.integrity : sriSha512(out.body) };
   } catch (_) {
     return null;
   }
-}
-
-function sriSha512(buf) {
-  return 'sha512-' + crypto.createHash('sha512').update(buf).digest('base64');
 }
 
 /**
@@ -271,34 +373,70 @@ async function mergeNpmjsPackument(lightwellDoc, packagePath, hdrs) {
  * package/package.json, and set dist.integrity to sha512 of those bytes.
  * No-op once Pulp serves full manifests + generated integrity.
  */
+/**
+ * Force dist.integrity (+ pin) from the live Lightwell .tgz so Pulp/CDN cannot
+ * advertise a stale SRI while serving different bytes.
+ */
+async function recomputeVersionIntegrity(doc, name, version, hdrs) {
+  if (!doc || typeof doc !== 'object' || !doc.dist) return doc;
+  const lwTb = await fetchLightwellTarball(doc.dist, name, version, hdrs);
+  if (!lwTb) return doc;
+  doc.dist = {
+    ...doc.dist,
+    integrity: lwTb.integrity || sriSha512(lwTb.body),
+    tarball: `${PUBLIC_BASE}${lwTb.path}`,
+  };
+  delete doc.dist.shasum;
+  return doc;
+}
+
 async function expandStubPackument(packument, packagePath, hdrs) {
   if (!packument || typeof packument !== 'object' || !packument.versions) return packument;
   const versions = packument.versions;
   const names = Object.keys(versions);
   if (!names.length) return packument;
   const stubs = names.every((ver) => isStubVersion(versions[ver]));
-  if (!stubs) return packument;
 
   const basePath = packagePath.replace(/\/$/, '');
   const pkgName = packument.name || basePath.replace(/^\//, '');
+
+  if (stubs) {
+    await Promise.all(
+      names.map(async (ver) => {
+        try {
+          const stub = versions[ver] || {};
+          if (!stub.dist) return;
+          const lwTb = await fetchLightwellTarball(stub.dist, pkgName, ver, hdrs);
+          if (!lwTb) {
+            console.error(`expand ${basePath}@${ver}: Lightwell tarball missing`);
+            return;
+          }
+          const pkg = packageJsonFromTarball(lwTb.body);
+          versions[ver] = versionDocFromTarball(
+            pkg,
+            stub,
+            lwTb.path,
+            lwTb.integrity || sriSha512(lwTb.body),
+          );
+        } catch (err) {
+          console.error(`expand ${basePath}@${ver}:`, err.message || err);
+        }
+      }),
+    );
+    return mergeNpmjsPackument(packument, basePath, hdrs);
+  }
+
+  // Non-stub Pulp manifests can still carry wrong dist.integrity after replace.
   await Promise.all(
     names.map(async (ver) => {
       try {
-        const stub = versions[ver] || {};
-        if (!stub.dist) return;
-        const lwTb = await fetchLightwellTarball(stub.dist, pkgName, ver, hdrs);
-        if (!lwTb) {
-          console.error(`expand ${basePath}@${ver}: Lightwell tarball missing`);
-          return;
-        }
-        const pkg = packageJsonFromTarball(lwTb.body);
-        versions[ver] = versionDocFromTarball(pkg, stub, lwTb.path, sriSha512(lwTb.body));
+        versions[ver] = await recomputeVersionIntegrity(versions[ver], pkgName, ver, hdrs);
       } catch (err) {
-        console.error(`expand ${basePath}@${ver}:`, err.message || err);
+        console.error(`integrity ${basePath}@${ver}:`, err.message || err);
       }
     }),
   );
-  return mergeNpmjsPackument(packument, basePath, hdrs);
+  return packument;
 }
 
 function logMiss(path) {
@@ -329,6 +467,25 @@ const server = http.createServer(async (req, res) => {
   };
 
   try {
+    // .tgz files are already gzip; never gunzip them (npmjs often sets
+    // Content-Encoding: gzip on the wire, which would double-decompress).
+    const isTarball = pathOnly.endsWith('.tgz');
+
+    // Prefer pinned Lightwell bytes (same digest as packument expand).
+    if (isTarball) {
+      const pin = getPinnedTarball(pathOnly);
+      if (pin) {
+        res.writeHead(200, {
+          'content-type': 'application/octet-stream',
+          'content-length': pin.body.length,
+          'x-npm-proxy-source': 'lightwell-pin',
+          'x-npm-proxy-integrity': pin.integrity,
+        });
+        res.end(req.method === 'HEAD' ? undefined : pin.body);
+        return;
+      }
+    }
+
     const lwUrl = resolveLightwell(path);
     let out = await fetchOnce(lwUrl, hdrs, 0, true);
     let source = 'lightwell';
@@ -344,11 +501,12 @@ const server = http.createServer(async (req, res) => {
       console.error(`${source} ${out.status} for ${path}`);
     }
 
-    // .tgz files are already gzip; never gunzip them (npmjs often sets
-    // Content-Encoding: gzip on the wire, which would double-decompress).
-    const isTarball = pathOnly.endsWith('.tgz');
     let raw = isTarball ? out.body : maybeDecode(out.body, out.headers);
     let ct = out.headers['content-type'] || 'application/octet-stream';
+
+    if (isTarball && out.status === 200 && source === 'lightwell') {
+      setPinnedTarball(pathOnly, raw);
+    }
 
     const looksJson =
       !isTarball &&
@@ -364,6 +522,12 @@ const server = http.createServer(async (req, res) => {
             doc = await expandStubPackument(doc, pathOnly, hdrs);
             // Re-apply host rewrite after merge (version docs have absolute tarball URLs).
             text = rewriteAbsoluteRegistryHosts(JSON.stringify(doc));
+          } else {
+            const verMeta = parseVersionMetadataPath(pathOnly);
+            if (verMeta) {
+              doc = await recomputeVersionIntegrity(doc, verMeta.name, verMeta.version, hdrs);
+              text = rewriteAbsoluteRegistryHosts(JSON.stringify(doc));
+            }
           }
         } catch (err) {
           console.error(`packument rewrite failed for ${pathOnly}:`, err.message || err);
@@ -395,4 +559,10 @@ server.listen(LISTEN_PORT, LISTEN_BIND, () => {
   console.log(`  lightwell: ${TARGET}`);
   console.log(`  upstream:  ${UPSTREAM_NPM}`);
   console.log(`  miss log:  ${MISS_LOG}`);
+  console.log(
+    `  cdn bust:  ${BYPASS_CDN_CACHE ? 'on (_cb + no-cache, incl. redirect/CDN hosts)' : 'off'}`,
+  );
+  console.log(
+    `  tarball pin: ${TARBALL_PIN_TTL_MS === 0 ? 'off' : `on (ttl ${TARBALL_PIN_TTL_MS}ms)`}`,
+  );
 });

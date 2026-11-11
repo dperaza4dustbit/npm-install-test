@@ -60,17 +60,26 @@ export function runWithRetries(cmd, args, opts = {}, attempts = 3) {
   throw last;
 }
 
-export function attestationOciTag(name, version) {
+function ociTagFor(name, version, suffix) {
   let raw;
   if (name.startsWith('@')) {
-    raw = `${name.slice(1).replace(/\//g, '--')}-${version}-att`;
+    raw = `${name.slice(1).replace(/\//g, '--')}-${version}${suffix}`;
   } else {
-    raw = `${name}-${version}-att`;
+    raw = `${name}-${version}${suffix}`;
   }
   let sanitized = raw.replace(/[^A-Za-z0-9._-]/g, '-');
   if (!/^[A-Za-z0-9_]/.test(sanitized)) sanitized = `_${sanitized}`;
   if (sanitized.length > 128) sanitized = sanitized.slice(0, 128);
   return sanitized;
+}
+
+export function attestationOciTag(name, version) {
+  return ociTagFor(name, version, '-att');
+}
+
+/** Quay tag for the released .tgz OCI artifact (source of truth vs CDN). */
+export function npmArtifactOciTag(name, version) {
+  return ociTagFor(name, version, '.npm');
 }
 
 export function createDssePae(payloadBytes, payloadType = 'application/vnd.in-toto+json') {

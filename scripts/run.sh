@@ -47,6 +47,9 @@ PROXY_ENV=(
   -e "LIGHTWELL_AUTH_PROXY_BIND=0.0.0.0"
   -e "PROXY_MISS_LOG=/tmp/npm-proxy-misses.jsonl"
 )
+if [[ -n "${PROXY_BYPASS_CDN_CACHE:-}" ]]; then
+  PROXY_ENV+=(-e "PROXY_BYPASS_CDN_CACHE=${PROXY_BYPASS_CDN_CACHE}")
+fi
 if [[ -n "${SA_ENV_FILE:-}" ]]; then
   PROXY_ENV+=(--env-file "${SA_ENV_FILE}")
 else
@@ -114,7 +117,8 @@ for var in \
   ATTESTATION_OCI_PREFIX \
   ONLY_PACKAGE \
   NODE_MAJOR \
-  PROVENANCE_ALLOW_UNSIGNED
+  PROVENANCE_FALLBACK_QUAY \
+  PROVENANCE_CDN_RETRIES
 do
   if [[ -n "${!var:-}" ]]; then
     TEST_ENV+=(-e "${var}")

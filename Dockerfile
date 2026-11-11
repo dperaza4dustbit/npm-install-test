@@ -40,8 +40,7 @@ RUN chmod +x scripts/*.sh harness/*.mjs
 ENV PATH="/usr/local/lib/nodejs/node22/bin:/usr/local/bin:${PATH}" \
     NPM_PROXY_URL="http://npm-install-proxy:4874" \
     PROXY_MISS_LOG="/tmp/npm-proxy-misses.jsonl" \
-    ATTESTATION_OCI_PREFIX="quay.io/redhat-user-workloads/lightwell-javascript-tenant/javascript-validated/javascript-validated-build" \
-    PROVENANCE_ALLOW_UNSIGNED="1"
+    ATTESTATION_OCI_PREFIX="quay.io/redhat-user-workloads/lightwell-javascript-tenant/javascript-validated/javascript-validated-build"
 
 ENTRYPOINT ["/opt/npm-install-test/scripts/entrypoint.sh"]
 CMD ["all"]
