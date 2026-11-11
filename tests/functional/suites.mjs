@@ -215,6 +215,26 @@ export const suites = {
     () => ok(typeof mod.parse === 'function' && typeof mod.format === 'function', 'api surface'),
   ],
 
+  accepts: ({ mod: accepts }) => [
+    () => ok(typeof accepts === 'function', 'factory'),
+    () => {
+      const a = accepts({ headers: { accept: 'application/json' } });
+      ok(a && typeof a.types === 'function', 'types');
+    },
+    () => {
+      const a = accepts({ headers: { accept: 'application/json, text/plain;q=0.5' } });
+      ok(a.types(['json', 'html']) === 'json', 'prefer json');
+    },
+    () => {
+      const a = accepts({ headers: { accept: 'text/html' } });
+      ok(a.types(['json']) === false || a.types(['json']) == null, 'reject mismatch');
+    },
+    () => {
+      const a = accepts({ headers: { accept: '*/*' } });
+      ok(typeof a.type === 'function' || typeof a.types === 'function', 'type-or-types');
+    },
+  ],
+
   cors: ({ mod }) => [
     () => ok(typeof mod === 'function', 'factory'),
     () => ok(typeof mod({ origin: '*' }) === 'function', 'middleware'),
@@ -272,6 +292,81 @@ export const suites = {
     },
   ],
 
+  dotenv: ({ mod, dir }) => [
+    () => ok(typeof mod.config === 'function', 'config'),
+    () => ok(typeof mod.parse === 'function', 'parse'),
+    () => {
+      const parsed = mod.parse('SMOKE_A=1\nSMOKE_B=two\n');
+      ok(parsed.SMOKE_A === '1' && parsed.SMOKE_B === 'two', 'parse pairs');
+    },
+    () => {
+      const envPath = path.join(dir, '.env');
+      fs.writeFileSync(envPath, 'SMOKE_DOTENV_KEY=dotenv-smoke-ok\n');
+      const result = mod.config({ path: envPath });
+      ok(!result.error, 'config no error');
+      ok(result.parsed.SMOKE_DOTENV_KEY === 'dotenv-smoke-ok', 'config parsed');
+    },
+    () => {
+      ok(process.env.SMOKE_DOTENV_KEY === 'dotenv-smoke-ok', 'config sets process.env');
+    },
+  ],
+
+  encodeurl: ({ mod: encodeUrl }) => [
+    () => ok(typeof encodeUrl === 'function', 'fn'),
+    () => ok(encodeUrl('/foo bar') === '/foo%20bar', 'space'),
+    () => ok(encodeUrl('/foo%20bar') === '/foo%20bar', 'keep encoded'),
+    () => ok(encodeUrl('/café') !== '/café' || encodeUrl('/cafe') === '/cafe', 'unicode-or-ascii'),
+    () => ok(encodeUrl('/') === '/', 'root'),
+  ],
+
+  'escape-html': ({ mod: escapeHtml }) => [
+    () => ok(typeof escapeHtml === 'function', 'fn'),
+    () => ok(escapeHtml('<script>') === '&lt;script&gt;', 'ltgt'),
+    () => ok(escapeHtml('"') === '&quot;' || escapeHtml('"').includes('quot'), 'quote'),
+    () => ok(escapeHtml('&') === '&amp;', 'amp'),
+    () => ok(escapeHtml('ok') === 'ok', 'passthrough'),
+  ],
+
+  eslint: ({ mod }) => [
+    () => {
+      const { ESLint } = mod;
+      ok(typeof ESLint === 'function', 'ESLint ctor');
+    },
+    async () => {
+      const { ESLint } = mod;
+      const eslint = new ESLint({ useEslintrc: false, overrideConfig: { rules: {} } });
+      ok(typeof eslint.lintText === 'function', 'lintText');
+    },
+    async () => {
+      const { ESLint } = mod;
+      const eslint = new ESLint({
+        useEslintrc: false,
+        overrideConfig: { rules: { semi: ['error', 'always'] } },
+      });
+      const [result] = await eslint.lintText('var x = 1');
+      ok(result.errorCount >= 1 || result.messages.length >= 1, 'semi error');
+    },
+    () => {
+      const { ESLint } = mod;
+      ok(typeof ESLint.version === 'string' || typeof ESLint.outputFixes === 'function', 'static api');
+    },
+    () => ok(typeof mod.Linter === 'function' || typeof mod.ESLint === 'function', 'Linter-or-ESLint'),
+  ],
+
+  etag: ({ mod: etag }) => [
+    () => ok(typeof etag === 'function', 'fn'),
+    () => {
+      const tag = etag('hello', { weak: false });
+      ok(typeof tag === 'string' && tag.includes('"'), 'strong');
+    },
+    () => {
+      const tag = etag('hello', { weak: true });
+      ok(String(tag).startsWith('W/') || String(tag).includes('"'), 'weak');
+    },
+    () => ok(etag('a') !== etag('b'), 'differs'),
+    () => ok(etag('same') === etag('same'), 'stable'),
+  ],
+
   esbuild: ({ mod, dir, platformPackage }) => [
     () => ok(typeof mod.transformSync === 'function', 'transformSync'),
     () => {
@@ -322,6 +417,78 @@ export const suites = {
       });
       ok(body === 'pong', 'http ping');
       await new Promise((r) => server.close(r));
+    },
+  ],
+
+  fresh: ({ mod: fresh }) => [
+    () => ok(typeof fresh === 'function', 'fn'),
+    () => {
+      const etag = '"abc"';
+      ok(fresh({ 'if-none-match': etag }, { etag }) === true, 'etag match');
+    },
+    () => {
+      ok(fresh({}, { etag: '"abc"' }) === false, 'unconditional stale');
+    },
+    () => {
+      ok(fresh({ 'if-none-match': '"a"' }, { etag: '"b"' }) === false, 'etag miss');
+    },
+    () => {
+      ok(
+        fresh(
+          { 'if-modified-since': 'Wed, 21 Oct 2015 07:28:00 GMT' },
+          { 'last-modified': 'Wed, 21 Oct 2015 07:28:00 GMT' },
+        ) === true,
+        'ims match',
+      );
+    },
+  ],
+
+  helmet: ({ mod: helmet }) => [
+    () => ok(typeof helmet === 'function', 'factory'),
+    () => ok(typeof helmet() === 'function', 'middleware'),
+    () => ok(typeof helmet.contentSecurityPolicy === 'function', 'csp'),
+    () => ok(typeof helmet.frameguard === 'function' || typeof helmet.xFrameOptions === 'function', 'frame'),
+    () => {
+      const mw = helmet();
+      ok(mw.length >= 3, 'arity');
+    },
+  ],
+
+  'http-errors': ({ mod: createError }) => [
+    () => ok(typeof createError === 'function', 'factory'),
+    () => {
+      const err = createError(404);
+      ok(err.status === 404 || err.statusCode === 404, '404 status');
+    },
+    () => {
+      const err = createError(400, 'bad');
+      ok(String(err.message).includes('bad') || err.status === 400, 'message');
+    },
+    () => ok(typeof createError.NotFound === 'function' || typeof createError[404] === 'function', 'named'),
+    () => {
+      const err = createError(500);
+      ok(err instanceof Error, 'Error instance');
+    },
+  ],
+
+  jsonwebtoken: ({ mod: jwt }) => [
+    () => ok(typeof jwt.sign === 'function', 'sign'),
+    () => ok(typeof jwt.verify === 'function', 'verify'),
+    () => {
+      const token = jwt.sign({ sub: 'smoke' }, 'secret', { algorithm: 'HS256' });
+      ok(typeof token === 'string' && token.split('.').length === 3, 'jwt shape');
+    },
+    () => {
+      const token = jwt.sign({ sub: 'smoke' }, 'secret', { algorithm: 'HS256' });
+      ok(jwt.verify(token, 'secret').sub === 'smoke', 'roundtrip');
+    },
+    () => {
+      try {
+        jwt.verify(jwt.sign({ a: 1 }, 'a', { algorithm: 'HS256' }), 'b');
+        ok(false, 'should throw');
+      } catch {
+        ok(true, 'bad secret');
+      }
     },
   ],
 
@@ -378,6 +545,26 @@ export const suites = {
     () => ok(Array.isArray(mod.parse('a=1&a=2', { arrayLimit: 10 }).a) || mod.parse('a=1&a=2').a, 'dup keys'),
     () => ok(mod.parse('a[b]=1').a.b === '1', 'nested'),
     () => ok(typeof mod.formats === 'object' || typeof mod.stringify === 'function', 'formats'),
+  ],
+
+  'range-parser': ({ mod: parseRange }) => [
+    () => ok(typeof parseRange === 'function', 'fn'),
+    () => {
+      const r = parseRange(1000, 'bytes=0-499');
+      ok(Array.isArray(r) && r[0].start === 0 && r[0].end === 499, 'bytes range');
+    },
+    () => {
+      const r = parseRange(1000, 'bytes=-200');
+      ok(Array.isArray(r) && r[0].end === 999, 'suffix');
+    },
+    () => {
+      const r = parseRange(1000, 'bytes=900-');
+      ok(Array.isArray(r) && r[0].start === 900, 'open end');
+    },
+    () => {
+      const r = parseRange(1000, 'bytes=500-400');
+      ok(r === -1 || r === -2 || !Array.isArray(r), 'unsatisfiable-or-invalid');
+    },
   ],
 
   react: ({ mod }) => [
@@ -482,6 +669,23 @@ export const suites = {
     () => ok(statuses.redirect[301] === true || statuses.redirect[302] === true, 'redirect map'),
   ],
 
+  'type-is': ({ mod: typeis }) => [
+    () => ok(typeof typeis === 'function', 'fn'),
+    () => {
+      // type-is only negotiates when the request appears to have a body.
+      const req = { headers: { 'content-type': 'application/json', 'content-length': '2' } };
+      ok(typeis(req, ['json']) === 'json', 'json');
+    },
+    () => {
+      const req = { headers: { 'content-type': 'text/html', 'content-length': '2' } };
+      ok(typeis(req, ['json']) === false, 'mismatch');
+    },
+    () => {
+      ok(typeis.is('application/json', ['json']) === 'json', 'is helper');
+    },
+    () => ok(typeof typeis.hasBody === 'function', 'hasBody'),
+  ],
+
   typescript: ({ mod: ts, dir, platformPackage, version }) => [
     () => ok(typeof ts.transpileModule === 'function' || typeof ts.version === 'string', 'api'),
     () => {
@@ -516,6 +720,34 @@ export const suites = {
       const r = spawnSync(native, ['--version'], { encoding: 'utf8' });
       ok(r.status === 0, `native tsc --version: ${r.stderr || r.stdout}`);
     },
+  ],
+
+  vary: ({ mod: vary }) => [
+    () => ok(typeof vary === 'function', 'fn'),
+    () => {
+      const res = { getHeader() { return undefined; }, setHeader(k, v) { this._h = v; } };
+      vary(res, 'Origin');
+      ok(String(res._h).includes('Origin'), 'set Origin');
+    },
+    () => {
+      const res = {
+        _h: 'Accept',
+        getHeader(n) { return n.toLowerCase() === 'vary' ? this._h : undefined; },
+        setHeader(k, v) { this._h = v; },
+      };
+      vary(res, 'Origin');
+      ok(String(res._h).includes('Accept') && String(res._h).includes('Origin'), 'append');
+    },
+    () => {
+      const res = {
+        _h: 'Origin',
+        getHeader(n) { return n.toLowerCase() === 'vary' ? this._h : undefined; },
+        setHeader(k, v) { this._h = v; },
+      };
+      vary(res, 'Origin');
+      ok(String(res._h).split(',').filter((x) => x.trim() === 'Origin').length === 1, 'dedupe');
+    },
+    () => ok(typeof vary.append === 'function' || typeof vary === 'function', 'append-or-fn'),
   ],
 
   ws: ({ mod: WebSocket }) => [

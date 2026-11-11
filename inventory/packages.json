@@ -1,5 +1,5 @@
 {
-  "frozen_at": "2026-11-07",
+  "frozen_at": "2026-11-11",
   "registry_url": "https://packages.redhat.com/api/pulp-content/lightwell/javascript/validated",
   "upstream_registry_url": "https://registry.npmjs.org",
   "attestation_oci_prefix": "quay.io/redhat-user-workloads/lightwell-javascript-tenant/javascript-validated/javascript-validated-build",
@@ -7,6 +7,22 @@
   "cosign_public_key_source": "https://security.access.redhat.com/data/63405576.txt",
   "sbom_path_in_tarball": "package/sboms/redhat.spdx.json",
   "packages": [
+    {
+      "name": "accepts",
+      "version": "1.3.8",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "accepts",
+      "version": "2.0.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
     {
       "name": "async",
       "version": "3.2.5",
@@ -157,6 +173,14 @@
     },
     {
       "name": "debug",
+      "version": "2.6.9",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "debug",
       "version": "4.4.1",
       "native_tier": "A",
       "node_major": 22,
@@ -173,6 +197,30 @@
     },
     {
       "name": "depd",
+      "version": "2.0.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "dotenv",
+      "version": "18.0.10",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "encodeurl",
+      "version": "1.0.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "encodeurl",
       "version": "2.0.0",
       "native_tier": "A",
       "node_major": 22,
@@ -213,6 +261,30 @@
       "node_major": 22,
       "kind": "platform",
       "parent": "esbuild@0.28.2",
+      "esm": false
+    },
+    {
+      "name": "escape-html",
+      "version": "1.0.3",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "eslint",
+      "version": "8.57.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "etag",
+      "version": "1.8.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
       "esm": false
     },
     {
@@ -264,6 +336,54 @@
       "esm": false
     },
     {
+      "name": "fresh",
+      "version": "0.5.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "fresh",
+      "version": "2.0.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "helmet",
+      "version": "6.2.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "http-errors",
+      "version": "2.0.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "http-errors",
+      "version": "2.0.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "jsonwebtoken",
+      "version": "9.0.3",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
       "name": "lodash",
       "version": "4.18.0",
       "native_tier": "A",
@@ -306,6 +426,14 @@
     {
       "name": "qs",
       "version": "6.17.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "range-parser",
+      "version": "1.2.1",
       "native_tier": "A",
       "node_major": 22,
       "kind": "package",
@@ -376,6 +504,14 @@
       "esm": false
     },
     {
+      "name": "type-is",
+      "version": "1.6.18",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
       "name": "typescript",
       "version": "5.9.3",
       "native_tier": "A",
@@ -399,6 +535,14 @@
       "node_major": 22,
       "kind": "platform",
       "parent": "typescript@7.0.2",
+      "esm": false
+    },
+    {
+      "name": "vary",
+      "version": "1.1.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
       "esm": false
     },
     {

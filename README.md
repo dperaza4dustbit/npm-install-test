@@ -18,7 +18,7 @@ Customer / TP notes: [`docs/customer-verdaccio.md`](docs/customer-verdaccio.md).
 | **functional** | 5 smokes × every frozen **parent** package/version. Tier B/C also assert `@lightwell/*` pull/load |
 | **binaries** | Focused Tier B/C re-check: load/run `@lightwell/*` |
 | **install** | One tree with npm aliases for all parent versions via the proxy; summarizes upstream misses |
-| **provenance** | SBOM hard-fail + Quay attestation subject digest match; DSSE/cosign when present (see unsigned note) |
+| **provenance** | SBOM hard-fail (SPDX + npm identity) + Quay DSSE attestation (cosign verify + subject digest match) |
 
 Frozen inventory: [`inventory/packages.json`](inventory/packages.json).
 
@@ -54,6 +54,10 @@ Optional env:
 | `LIGHTWELL_AUTH_PROXY_PORT` | `4874` | host publish + proxy |
 | `ATTESTATION_OCI_PREFIX` | Quay validated build prefix | test |
 | `ONLY_PACKAGE` / `NODE_MAJOR` | unset | test |
+| `PROXY_BYPASS_CDN_CACHE` | `1` (default) — append `_cb` + `Cache-Control: no-cache` on Lightwell GETs **including CDN redirect hosts** so post-`ALLOW_CONTENT_REPLACE` provenance does not see stale tarballs; set `0` to disable. Best-effort only — Akamai may keep path-keyed objects until TTL/purge. | proxy |
+| `PROXY_TARBALL_PIN_TTL_MS` | `600000` — pin Lightwell `.tgz` bytes after packument expand / first fetch so `dist.integrity` matches the later tarball GET (avoids npm `EINTEGRITY` when CDN bust returns different generations); `0` disables | proxy |
+| `PROVENANCE_FALLBACK_QUAY` | unset — when `1`, if proxy/CDN digest still mismatches the attestation after retries, pull the `.tgz` from the Quay `:name-version.npm` artifact (verifies SBOM/attestation; skips customer registry path) | test |
+| `PROVENANCE_CDN_RETRIES` | `3` — proxy download attempts when digest mismatches attestation | test |
 
 ## Proxy image (TP seed)
 
@@ -68,7 +72,7 @@ Quay publish path TBD. Local tags: `npm-install-proxy:latest`, `npm-install-test
 
 ## Cosign public key
 
-Bundled: [`keys/redhat-release3.pub`](keys/redhat-release3.pub). Test image defaults `PROVENANCE_ALLOW_UNSIGNED=1` until signed DSSE envelopes are published.
+Bundled: [`keys/redhat-release3.pub`](keys/redhat-release3.pub). Provenance requires cosign-signed DSSE envelopes and an SBOM that carries npm name/version (purl) identity.
 
 ## Layout
 
