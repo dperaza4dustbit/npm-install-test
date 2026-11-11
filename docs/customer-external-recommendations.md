@@ -69,6 +69,10 @@ Points to cover:
 
 Please surface this as a strong admonition in any Configure Verdaccio / registry-manager topic (and near `.npmrc` examples that point at the manager).
 
+**HA / production note:** Verdaccio is a fine lab and docs reference for dual-uplink npm. For a more robust, highly available production setup, prefer something like **Artifactory or Nexus** (npm remote + virtual/group repo: Lightwell first, then upstream)—the same org-manager pattern Java and Python already document. Point writers at the existing topics under [Configure your artifact repository manager](https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_your_artifact_repository_manager) (Artifactory Java/Python, Nexus) and add an npm remote equivalent when ready.
+
+Unlike Java/Python, **npm clients generally need a registry manager for dual-target use**. Maven can list multiple repositories and pip can use `index-url` + `extra-index-url`; npm’s default model is a single `registry=` for unscoped packages, so “prefer Lightwell, else upstream” is not something the client does alone. A manager (Verdaccio lab / Artifactory or Nexus for HA) provides that ordering. Pointing `.npmrc` only at Lightwell is fine for a Lightwell-only lab install, but not for apps that still need community packages from upstream.
+
 ### Verdaccio reference implementation
 
 Suggested new topic (title up to you), with a dual-uplink example. Seed file in this repo: [`../verdaccio/config.yaml.template`](../verdaccio/config.yaml.template). Illustrative config for docs (direct Lightwell uplink—no extra workaround proxy):
