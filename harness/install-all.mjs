@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { ROOT, loadInventory, runWithRetries, npmrcForProxy } from './lib.mjs';
 
-const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:4874';
+const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:8081/repository/npm-group';
 const MISS_LOG = process.env.PROXY_MISS_LOG || '/tmp/npm-proxy-misses.jsonl';
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-install-all-'));
 const inv = loadInventory();

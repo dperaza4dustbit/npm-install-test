@@ -7,3 +7,5 @@ npm-debug.log*
 .env
 .env.*
 !.env.example
+.artifactory-run/
+.nexus-run/
