@@ -1,6 +1,6 @@
 {
-  "frozen_at": "2026-11-11",
-  "registry_url": "https://packages.redhat.com/api/pulp-content/lightwell/javascript/validated",
+  "frozen_at": "2026-11-12",
+  "registry_url": "https://packages.redhat.com/lightwell/javascript/validated",
   "upstream_registry_url": "https://registry.npmjs.org",
   "attestation_oci_prefix": "quay.io/redhat-user-workloads/lightwell-javascript-tenant/javascript-validated/javascript-validated-build",
   "cosign_public_key": "keys/redhat-release3.pub",
@@ -158,6 +158,14 @@
     {
       "name": "content-type",
       "version": "2.1.0",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "cookie",
+      "version": "0.7.2",
       "native_tier": "A",
       "node_major": 22,
       "kind": "package",
@@ -384,6 +392,14 @@
       "esm": false
     },
     {
+      "name": "lint-staged",
+      "version": "15.5.2",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": true
+    },
+    {
       "name": "lodash",
       "version": "4.18.0",
       "native_tier": "A",
@@ -394,6 +410,22 @@
     {
       "name": "lodash",
       "version": "4.18.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "morgan",
+      "version": "1.12.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "nodemon",
+      "version": "3.1.14",
       "native_tier": "A",
       "node_major": 22,
       "kind": "package",
@@ -482,6 +514,14 @@
     {
       "name": "send",
       "version": "1.2.1",
+      "native_tier": "A",
+      "node_major": 22,
+      "kind": "package",
+      "esm": false
+    },
+    {
+      "name": "serve-static",
+      "version": "1.16.3",
       "native_tier": "A",
       "node_major": 22,
       "kind": "package",

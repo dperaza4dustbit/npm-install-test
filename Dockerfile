@@ -1,5 +1,5 @@
 # Customer-style install/provenance/smoke harness for Lightwell validated npm.
-# Talks to a separate dual-registry proxy container (see Dockerfile.proxy).
+# Talks to a separate dual-registry manager (Nexus by default; see scripts/run.sh).
 # Default Node is 22; Node 20 is also installed for packages that need it.
 FROM registry.access.redhat.com/ubi9/ubi:latest
 
@@ -38,7 +38,8 @@ WORKDIR /opt/npm-install-test
 RUN chmod +x scripts/*.sh harness/*.mjs
 
 ENV PATH="/usr/local/lib/nodejs/node22/bin:/usr/local/bin:${PATH}" \
-    NPM_PROXY_URL="http://npm-install-proxy:4874" \
+    NPM_PROXY_URL="http://npm-install-proxy:8081/repository/npm-group" \
+    NPM_PROXY_READY_URL="http://npm-install-proxy:8081/service/rest/v1/status" \
     PROXY_MISS_LOG="/tmp/npm-proxy-misses.jsonl" \
     ATTESTATION_OCI_PREFIX="quay.io/redhat-user-workloads/lightwell-javascript-tenant/javascript-validated/javascript-validated-build"
 

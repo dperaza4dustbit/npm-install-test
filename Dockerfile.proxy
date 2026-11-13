@@ -1,5 +1,7 @@
-# Slim dual-registry proxy for Lightwell validated npm (tech-preview style).
-# Prefer Lightwell Pulp; on miss fall back to UPSTREAM_REGISTRY_URL.
+# REFERENCE dual-registry proxy (Node). Harness default is Verdaccio
+# (PROXY_IMPL=verdaccio). Use PROXY_IMPL=custom to run this image instead.
+# True prefer-Lightwell: try Lightwell, on 404 fall back to upstream; on packument
+# merge, Lightwell versions overwrite npmjs for the same version.
 FROM registry.access.redhat.com/ubi9/ubi:latest
 
 ARG NODE22_VERSION=22.14.0

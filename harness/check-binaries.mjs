@@ -20,7 +20,7 @@ import {
   pathForNodeMajor,
 } from './lib.mjs';
 
-const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:4874';
+const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:8081/repository/npm-group';
 const inv = loadInventory();
 const natives = inv.packages.filter((p) => p.kind === 'package' && (p.native_tier === 'B' || p.native_tier === 'C'));
 const self = fileURLToPath(import.meta.url);

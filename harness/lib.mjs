@@ -41,7 +41,7 @@ export function run(cmd, args, opts = {}) {
   return res;
 }
 
-/** Retry on transient Verdaccio/Pulp uplink errors (401/500 during tarball fetch). */
+/** Retry on transient manager/Pulp uplink errors (401/500 during tarball fetch). */
 export function runWithRetries(cmd, args, opts = {}, attempts = 3) {
   let last;
   for (let i = 1; i <= attempts; i++) {

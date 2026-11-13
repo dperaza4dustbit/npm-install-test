@@ -1,6 +1,8 @@
 # Customer internal notes: Lightwell validated npm (JavaScript)
 
-Internal / engineering notes for the TP dual-registry proxy and Verdaccio reference. For the docs-writer insertion brief, see [`customer-external-recommendations.md`](customer-external-recommendations.md). Pulp packument gap: [`pulp-npm-packument-requirement.md`](pulp-npm-packument-requirement.md).
+Internal / engineering notes for the TP dual-registry harness. For the docs-writer insertion brief, see [`customer-external-recommendations.md`](customer-external-recommendations.md). Historical Pulp packument gap notes: [`pulp-npm-packument-requirement.md`](pulp-npm-packument-requirement.md) (workaround removed after the Pulp fix).
+
+**Customer TP docs** should say an npm-capable **artifact manager** is required for dual-registry prefer, and document **Nexus only** as the verified reference (see [`customer-external-recommendations.md`](customer-external-recommendations.md)). Do **not** push the custom Node proxy as a customer path, and do not interleave Artifactory + Nexus terminology in the same procedure. Artifactory OSS has no npm package type (lab smoke on `artifactory-oss:7.104.12`). Nexus Community (`sonatype/nexus3`) is the harness default: `npm-lightwell` + `npm-npmjs` in `npm-group` (Lightwell first) matches Lightwell on overlap; npmjs-only versions still appear.
 
 ## Tech preview status
 
@@ -8,8 +10,8 @@ Lightwell Network JavaScript **Validated** is a **technology preview**.
 
 - Not recommended for production workloads.
 - Catalog coverage and registry metadata are still evolving.
-- Until Pulp serves full npm packuments, customers should not treat a direct Pulp uplink as a drop-in `registry.npmjs.org` replacement.
-- Supported TP pattern: **HTTP dual-registry proxy** (Lightwell first, upstream on miss), with Lightwell credentials only on the proxy.
+- Customer TP pattern: artifact manager with Lightwell before upstream (packument merge, Lightwell wins on overlap; tarball resolve Lightwell then upstream). Customer docs: Nexus as verified reference.
+- This harness defaults to **Nexus** (`PROXY_IMPL=nexus`) and keeps a **lab-only** custom Node proxy (`PROXY_IMPL=custom`) for comparison—not for TP customer exposure.
 
 Customer-facing repository URL (same pattern as Java / Python docs):
 
@@ -19,7 +21,7 @@ Customer-facing repository URL (same pattern as Java / Python docs):
 | Java | `https://packages.redhat.com/lightwell/java/validated/` |
 | JavaScript | `https://packages.redhat.com/lightwell/javascript/validated` |
 
-Do **not** publish the `/api/pulp-content/...` content-app path in customer docs. This harness may still default to that path until the public URL is cut over.
+Do **not** publish the `/api/pulp-content/...` content-app path in customer docs.
 
 ## Authentication
 
@@ -39,134 +41,70 @@ export SERVICE_ACCOUNT_USERNAME='XXXXXXX|service-account-name'
 export SERVICE_ACCOUNT_PASSWORD='...'   # the registry token
 ```
 
-The proxy injects Basic auth toward Lightwell. Client `.npmrc` must **not** hold these credentials when using the proxy pattern.
+When using the dual-registry manager harness, credentials stay on the manager. Client `.npmrc` must **not** hold these credentials.
 
 ### Not the same: Lightwell Network API access
 
 Hybrid Cloud Console service account (`CLIENT_ID` / `CLIENT_SECRET`) → short-lived Bearer token for `console.redhat.com` APIs. Different credential set; do not mix with npm Basic auth.
 
-## Recommended TP topology: HTTP proxy + upstream fallback
+## Recommended TP topology
 
 ```text
 npm / yarn / pnpm
         │
         ▼
-  org HTTP proxy  (Lightwell Basic auth lives here only)
+  org artifact manager (Nexus verified here; Artifactory etc. via vendor docs)
         │
-        ├─ hit  → https://packages.redhat.com/lightwell/javascript/validated
-        └─ miss → customer upstream (default: registry.npmjs.org)
+        ├─ prefer → https://packages.redhat.com/lightwell/javascript/validated
+        └─ else   → customer upstream or https://registry.npmjs.org
 ```
 
-Why a proxy (TP):
+Why a manager (required for npm dual-target):
 
 1. Prefer Lightwell validated tarballs when present.
 2. Fall back to upstream for the rest of the graph.
 3. Keep SA credentials off developer laptops / CI job `.npmrc` files.
-4. Work around Pulp stub packuments and absolute `dist.tarball` URLs that break naive uplinks.
 
-### Client `.npmrc`
+### Client `.npmrc` (manager)
 
 ```ini
-registry=http://127.0.0.1:4874/
+registry=http://127.0.0.1:8081/repository/npm-group/
 ```
 
-### Run the reference proxy from this repo
+### Harness registry manager (this repo)
+
+`./scripts/run.sh` defaults to **Nexus** (`PROXY_IMPL=nexus`, image `sonatype/nexus3`). After boot, [`../scripts/nexus-configure.sh`](../scripts/nexus-configure.sh) creates:
+
+| Repo | Type | Role |
+|---|---|---|
+| `npm-lightwell` | npm proxy | Lightwell URL + SA Basic |
+| `npm-npmjs` | npm proxy | `registry.npmjs.org` |
+| `npm-group` | npm group | members: Lightwell, then npmjs |
+
+| Manager | Prefer behavior |
+|---|---|
+| **Nexus group** (harness default; customer reference) | Member order: Lightwell first. Same-version packument/tarball match Lightwell; npmjs-only versions still appear. |
+| **Custom Node proxy** (`PROXY_IMPL=custom`) | Lab-only comparison: Lightwell first; **404** → upstream; packument merge **overwrites** same versions with Lightwell. **Not for TP customer docs.** |
 
 ```bash
 ./scripts/build.sh
 export SERVICE_ACCOUNT_USERNAME='XXXXXXX|service-account-name'
 export SERVICE_ACCOUNT_PASSWORD='...'
-# optional: UPSTREAM_REGISTRY_URL=https://your.artifactory.example/npm/
 ./scripts/run.sh proxy
+# PROXY_IMPL=custom  → lab-only Node proxy
 ```
 
 | Variable | Role |
 |---|---|
 | `SERVICE_ACCOUNT_USERNAME` / `SERVICE_ACCOUNT_PASSWORD` | Registry SA → Lightwell Basic auth |
-| `LIGHTWELL_REGISTRY_URL` | Customer docs URL above; harness may still default to `/api/pulp-content/...` |
-| `UPSTREAM_REGISTRY_URL` | Miss fallback (default `https://registry.npmjs.org`) |
+| `LIGHTWELL_REGISTRY_URL` | Default pulp-content path until vanity URL is routed |
+| `UPSTREAM_REGISTRY_URL` | Second remote / miss fallback (default `https://registry.npmjs.org`) |
+| `PROXY_IMPL` | `nexus` (default) or `custom` |
+| `NEXUS_FRESH` | `1` to wipe Nexus data volume before start |
+| `NEXUS_PLATFORM` | defaults to `linux/amd64` (same as the test image); set `native` for host arch |
+| `NEXUS_PUBLISH_HOST_PORT` | `1` (or `MODE=proxy`) to publish Nexus UI on the host; default off for test runs |
 
-Implementation: [`../proxy/lightwell-auth-proxy.js`](../proxy/lightwell-auth-proxy.js).
-
-## Reference implementation: Verdaccio
-
-[`../verdaccio/config.yaml.template`](../verdaccio/config.yaml.template).
-
-### TP caveat
-
-Direct Verdaccio uplink to Pulp today often fails (stub packuments; absolute tarball URLs → 401 on CDN redirects).
-
-**TP topology that works:**
-
-```text
-npm client → Verdaccio → lightwell-auth-proxy → packages.redhat.com
-                      ↘ npmjs.org (or customer upstream)
-```
-
-### Example Verdaccio config
-
-```yaml
-storage: ./storage
-
-web:
-  enable: false
-  title: Lightwell npm proxy
-
-auth:
-  htpasswd:
-    file: ./htpasswd
-    max_users: -1
-
-uplinks:
-  lightwell:
-    # TP: auth-injecting proxy, not Pulp directly.
-    # After Pulp packuments + auth-safe tarball URLs:
-    #   url: https://packages.redhat.com/lightwell/javascript/validated
-    #   plus uplink Basic auth with the registry service account.
-    url: http://127.0.0.1:4874/
-    timeout: 120s
-    maxage: 30m
-    cache: true
-  npmjs:
-    url: https://registry.npmjs.org/
-    timeout: 60s
-    maxage: 30m
-    cache: true
-
-packages:
-  '@lightwell/*':
-    access: $all
-    publish: $authenticated
-    unpublish: $authenticated
-    proxy: lightwell
-
-  '@*/*':
-    access: $all
-    publish: $authenticated
-    unpublish: $authenticated
-    proxy: lightwell npmjs
-
-  '**':
-    access: $all
-    publish: $authenticated
-    unpublish: $authenticated
-    proxy: lightwell npmjs
-
-middlewares:
-  audit:
-    enabled: false
-
-logs: { type: stdout, format: pretty, level: http }
-
-listen: 127.0.0.1:4873
-```
-
-### Post-Pulp (target)
-
-- Verdaccio `lightwell.url` → `https://packages.redhat.com/lightwell/javascript/validated`
-- Uplink Basic auth → same registry SA username + token as Java/Python
-- Remove the custom Node proxy from the customer path
-- Keep dual-uplink order: Lightwell then upstream
+Do not expose the manager on the public internet.
 
 ## How this repo validates the story
 

@@ -30,7 +30,7 @@ import {
   npmrcForProxy,
 } from './lib.mjs';
 
-const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:4874';
+const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:8081/repository/npm-group';
 const inv = loadInventory();
 const KEY = path.join(ROOT, inv.cosign_public_key);
 const SBOM_MEMBER = inv.sbom_path_in_tarball;
@@ -136,10 +136,11 @@ async function downloadMatchingTarball(name, version, dest, expectedDigests, wor
     return quay;
   }
   throw new Error(
-    `${name}@${version}: CDN/proxy returned stale tarball after ${DOWNLOAD_ATTEMPTS} tries ` +
+    `${name}@${version}: proxy tarball sha256 mismatch after ${DOWNLOAD_ATTEMPTS} tries ` +
       `(got sha256=${last.sha256} bytes=${last.bytes}; attestation wants ${expectedDigests.join('|')}). ` +
-      `packages.redhat.com can lag after ALLOW_CONTENT_REPLACE. Retry later, or set PROVENANCE_FALLBACK_QUAY=1 ` +
-      `to verify SBOM/attestation from the Quay .npm artifact.`,
+      `Usually the manager served community npmjs bytes for a version that also exists on Lightwell ` +
+      `(manager returned community bytes for a Lightwell pin), or packages.redhat.com is stale after ALLOW_CONTENT_REPLACE. ` +
+      `Retry later, or set PROVENANCE_FALLBACK_QUAY=1 to verify SBOM/attestation from the Quay .npm artifact.`,
   );
 }
 

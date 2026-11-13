@@ -4,9 +4,7 @@ Brief for a docs writer updating [Lightwell Network](https://docs.redhat.com/en/
 
 Part 1 is the **content** we need in the product docs. Part 2 is **suggested** places to put it—use those as a starting point; place and shape topics however fits the existing set best.
 
-**Working assumption:** Pulp npm registry behavior matches a normal npm uplink (full packuments, auth that works with standard managers). Document that path. We will re-test with Verdaccio in `npm-install-test` when the Pulp fix lands and adjust this brief if needed.
-
-Lab-only notes stay in [`customer-internal.md`](customer-internal.md).
+Lab-only / engineering notes stay in [`customer-internal.md`](customer-internal.md). Do **not** document home-grown or lab-only proxies in customer topics.
 
 ---
 
@@ -34,89 +32,69 @@ https://packages.redhat.com/lightwell/javascript/validated
 
 ### Authentication
 
-Same registry service account as Java / Python / Nexus / Artifactory:
+Same registry service account as Java / Python:
 
 - Create account: [Create a Lightwell Network service account](https://docs.redhat.com/en/documentation/lightwell_network/current/get_started-create_a_red_hat_lightwell_network_service_account)
 - Username: `XXXXXXX|service-account-name`
 - Password: registry token from that page
-- Use as HTTP Basic on the Lightwell npm uplink (manager) or, for a simple lab, in npm auth settings
+- Use as HTTP Basic on the Lightwell remote in the org artifact manager (or, for a simple Lightwell-only lab, in npm auth settings)
 
 Keep this separate from [Lightwell Network API access](https://docs.redhat.com/en/documentation/lightwell_network/current/get_started-lightwell_network_api_access) (Hybrid Console Bearer token for `console.redhat.com` APIs).
 
-### Dual-registry proxy pattern (org registry manager)
+### Dual-registry pattern (artifact manager required for npm)
 
-Customers who still need community (or private) packages should put an npm-capable registry manager in front of Lightwell, same idea as Artifactory/Nexus for other ecosystems:
+Customers who still need community (or private) packages need an **npm-capable artifact manager** in front of Lightwell—for example Artifactory or Nexus, the same class of manager already used for Java and Python.
+
+Unlike Java/Python, **npm clients generally need that manager for dual-target use**. Maven can list multiple repositories and pip can use `index-url` + `extra-index-url`; npm’s default model is a single `registry=` for unscoped packages, so “prefer Lightwell, else upstream” is not something the client does alone. Pointing `.npmrc` only at Lightwell is fine for a Lightwell-only lab install, but not for apps that still need community packages from upstream.
 
 ```text
 npm / yarn / pnpm
         │
         ▼
-  org registry manager (e.g. Verdaccio)
+  org artifact manager
         │
         ├─ prefer → https://packages.redhat.com/lightwell/javascript/validated
         └─ else   → customer upstream or https://registry.npmjs.org
 ```
 
-Points to cover:
+Required behavior (npm-specific; any manager must deliver this):
 
-1. Lightwell uplink URL and Basic auth (service account username + token).
-2. Second uplink for packages Lightwell does not host.
-3. Policy: try Lightwell first, then upstream.
-4. Developers point `.npmrc` `registry=` at the **manager**, not only at Lightwell, when they need fallback.
+1. **Packuments** — merge Lightwell + upstream version catalogs; when the same version exists in both, **Lightwell wins** (so `dist.integrity` / tarball metadata match validated bytes).
+2. **Tarballs** — resolve Lightwell first; if that version is not on Lightwell, use upstream.
+3. Lightwell remote URL + Basic auth (service account username + token) on the manager, not in developer `.npmrc`.
+4. Second remote for packages / versions Lightwell does not host.
+5. Developers point `.npmrc` `registry=` at the manager’s aggregated npm endpoint, not only at Lightwell, when they need fallback.
 
 > **Important — do not expose this manager on the public internet.**  
-> Verdaccio (or any org proxy) that holds Lightwell service-account credentials and caches validated packages will serve those authenticated builds to whoever can reach it. Treat it like an internal registry: private network / VPN, auth in front of the manager, and no anonymous public listen. A publicly reachable dual-uplink proxy effectively redistributes Red Hat Lightwell validated content to the world.
+> An org registry that holds Lightwell service-account credentials and caches validated packages will serve those authenticated builds to whoever can reach it. Treat it like an internal registry: private network / VPN, auth in front of the manager, and no anonymous public listen. A publicly reachable dual-remote proxy effectively redistributes Red Hat Lightwell validated content to the world.
 
-Please surface this as a strong admonition in any Configure Verdaccio / registry-manager topic (and near `.npmrc` examples that point at the manager).
+Please surface this as a strong admonition in the Configure artifact-manager topic and near `.npmrc` examples that point at the manager.
 
-**HA / production note:** Verdaccio is a fine lab and docs reference for dual-uplink npm. For a more robust, highly available production setup, prefer something like **Artifactory or Nexus** (npm remote + virtual/group repo: Lightwell first, then upstream)—the same org-manager pattern Java and Python already document. Point writers at the existing topics under [Configure your artifact repository manager](https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_your_artifact_repository_manager) (Artifactory Java/Python, Nexus) and add an npm remote equivalent when ready.
+### Configure the artifact manager (Nexus steps)
 
-Unlike Java/Python, **npm clients generally need a registry manager for dual-target use**. Maven can list multiple repositories and pip can use `index-url` + `extra-index-url`; npm’s default model is a single `registry=` for unscoped packages, so “prefer Lightwell, else upstream” is not something the client does alone. A manager (Verdaccio lab / Artifactory or Nexus for HA) provides that ordering. Pointing `.npmrc` only at Lightwell is fine for a Lightwell-only lab install, but not for apps that still need community packages from upstream.
+Suggested topic under [Configure your artifact repository manager](https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_your_artifact_repository_manager), sibling to existing Java/Python manager pages.
 
-### Verdaccio reference implementation
+Document concrete **Nexus** steps that we have lab-verified (Nexus Repository Community / `sonatype/nexus3`). Prefer behavior: two npm proxies plus a group with Lightwell first.
 
-Suggested new topic (title up to you), with a dual-uplink example. Seed file in this repo: [`../verdaccio/config.yaml.template`](../verdaccio/config.yaml.template). Illustrative config for docs (direct Lightwell uplink—no extra workaround proxy):
+1. Create an npm **proxy** repository for Lightwell (name illustrative: `npm-lightwell`).
+   - Remote URL: `https://packages.redhat.com/lightwell/javascript/validated`
+   - Authentication: HTTP Basic with the registry service account username + token
+2. Create an npm **proxy** repository for upstream (name illustrative: `npm-npmjs`).
+   - Remote URL: `https://registry.npmjs.org` (or the customer’s existing npm upstream)
+3. Create an npm **group** repository (name illustrative: `npm-group`).
+   - Members **in order**: `npm-lightwell`, then `npm-npmjs`
+4. Point developer / CI `.npmrc` at the group only:
 
-```yaml
-storage: ./storage
-
-uplinks:
-  lightwell:
-    url: https://packages.redhat.com/lightwell/javascript/validated
-    # Configure Basic auth with the registry service account
-    # (username + token), using Verdaccio’s uplink auth mechanism.
-    timeout: 120s
-    maxage: 30m
-    cache: true
-  npmjs:
-    url: https://registry.npmjs.org/
-    timeout: 60s
-    maxage: 30m
-    cache: true
-
-packages:
-  '@lightwell/*':
-    access: $all
-    publish: $authenticated
-    unpublish: $authenticated
-    proxy: lightwell
-
-  '@*/*':
-    access: $all
-    publish: $authenticated
-    unpublish: $authenticated
-    proxy: lightwell npmjs
-
-  '**':
-    access: $all
-    publish: $authenticated
-    unpublish: $authenticated
-    proxy: lightwell npmjs
-
-listen: 127.0.0.1:4873   # example: local/lab only — do not publish 0.0.0.0 without org auth
+```ini
+registry=https://npm-proxy.example.corp/repository/npm-group/
 ```
 
-Writers can shorten this, match house style for secrets/auth blocks, or use Artifactory/Nexus npm remotes later instead of Verdaccio. Verdaccio is the reference we will validate in `npm-install-test` after the Pulp fix. Repeat the “not on the public network” note next to any listen/bind example.
+5. Do **not** put the Lightwell service-account token in developer `.npmrc` — it stays on the `npm-lightwell` proxy.
+6. Keep the group/manager off the public internet (see admonition above).
+
+**SSRF note (corp/split DNS):** If creating the Lightwell npm proxy fails because the host resolves to a private/local IP, allowlist `packages.redhat.com` (and its resolved addresses if required) in Nexus SSRF protection. Most public-internet installs resolve that hostname to public addresses and do not need this.
+
+This Nexus procedure is reference documentation from our development / validation testing. For a more robust, production-ready artifact-manager configuration (HA, authz, cache policy, TLS, SaaS vs self-managed, and equivalents on Artifactory or other managers), follow the vendor’s current documentation while keeping the same prefer behavior: Lightwell first, then upstream; Lightwell wins on version overlap.
 
 ### npm client (`.npmrc`)
 
@@ -125,10 +103,12 @@ Suggested new topic parallel to the Java/Python build-tool pages.
 **Preferred path (with manager):**
 
 ```ini
-registry=https://npm-proxy.example.corp/
+registry=https://npm-proxy.example.corp/repository/npm-group/
 ```
 
-Lightwell credentials live on the manager uplink; developers do not need them in local `.npmrc` for that setup.
+(Adjust to the customer’s aggregated npm URL. The example matches the Nexus reference above.)
+
+Lightwell credentials live on the manager remote; developers do not need them in local `.npmrc` for that setup.
 
 **Optional direct path (lab / Lightwell-only installs):**
 
@@ -139,6 +119,8 @@ Scoped registries (e.g. `@myorg`) can stay as customers already have them.
 ### What we are not asking you to document
 
 - JavaScript Remediated or Predisclosure repository URLs
+- Full production hardening / HA / vendor-specific deep dives (point to vendor docs in the short end note instead)
+- pulp-content or other internal registry URLs
 
 ---
 
@@ -151,13 +133,12 @@ These are recommendations only. Fold content into existing topics, add new child
 | TP + Validated-only for JS | [Lightwell Network repositories](https://docs.redhat.com/en/documentation/lightwell_network/current/discover-lightwell_network_repositories) and/or [Choose the right repository](https://docs.redhat.com/en/documentation/lightwell_network/current/get_started-choose_the_right_repository) |
 | Service account reuse | Link to [Create a Lightwell Network service account](https://docs.redhat.com/en/documentation/lightwell_network/current/get_started-create_a_red_hat_lightwell_network_service_account); light mention under [repository access](https://docs.redhat.com/en/documentation/lightwell_network/current/get_started-authenticate_to_lightwell_network) if you list client auth there |
 | API vs registry auth | Only if you cross-link; keep [API access](https://docs.redhat.com/en/documentation/lightwell_network/current/get_started-lightwell_network_api_access) about Bearer/console APIs |
-| Verdaccio dual-uplink + URL + Basic auth | New child under [Configure your artifact repository manager](https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_your_artifact_repository_manager), sibling to Artifactory/Nexus—or equivalent new manager topic |
+| Artifact manager + Nexus steps | New child under [Configure your artifact repository manager](https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_your_artifact_repository_manager), sibling to existing Java/Python manager pages |
 | `.npmrc` / npm client | New child under “Configure your build tool,” alongside [Python](https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_python_build_tool) and [Java](https://docs.redhat.com/en/documentation/lightwell_network/current/configure-configure_java_build_tool) |
-| Artifactory/Nexus npm remotes | Optional later; Verdaccio + npm client is enough for a first JS path |
 
 ### Possible topic titles
 
-- Configure Verdaccio to use the Lightwell Network JavaScript repository
+- Configure Nexus for the Lightwell Network JavaScript repository
 - Configure your npm client to use the Lightwell Network repository
 
 Feel free to rename to match existing title patterns.
@@ -169,7 +150,8 @@ Feel free to rename to match existing title patterns.
 - [ ] TP / not-for-production called out for JS Validated
 - [ ] Validated URL uses the `packages.redhat.com/lightwell/javascript/validated` form
 - [ ] Auth matches Java/Python registry service account wording
-- [ ] Dual-uplink (Lightwell then upstream) explained; Verdaccio example included or linked
-- [ ] Strong note: manager/proxy must stay off the public internet (authenticated validated builds)
-- [ ] npm client prefers pointing at the org manager
-- [ ] No lab workaround proxies or pulp-content URLs in customer topics
+- [ ] Artifact manager required for npm dual-target; packument merge + Lightwell-wins-on-overlap called out
+- [ ] Configure procedure uses **Nexus only** as the verified reference; other managers deferred to vendor docs
+- [ ] Strong note: manager must stay off the public internet (authenticated validated builds)
+- [ ] npm client prefers pointing at the org aggregated npm endpoint
+- [ ] Customer topics use the vanity Validated URL only (no lab proxies, Verdaccio “prefer” guides, or pulp-content URLs)

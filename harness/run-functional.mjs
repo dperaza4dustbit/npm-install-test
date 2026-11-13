@@ -26,7 +26,7 @@ import {
 } from './lib.mjs';
 import { suites } from '../tests/functional/suites.mjs';
 
-const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:4874';
+const PROXY = process.env.NPM_PROXY_URL || 'http://127.0.0.1:8081/repository/npm-group';
 const inv = loadInventory();
 const only = process.env.ONLY_PACKAGE; // optional name filter
 const self = fileURLToPath(import.meta.url);

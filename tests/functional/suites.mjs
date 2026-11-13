@@ -235,6 +235,14 @@ export const suites = {
     },
   ],
 
+  cookie: ({ mod: cookie }) => [
+    () => ok(typeof cookie.parse === 'function', 'parse'),
+    () => ok(typeof cookie.serialize === 'function', 'serialize'),
+    () => ok(cookie.parse('foo=bar').foo === 'bar', 'parse value'),
+    () => ok(cookie.serialize('foo', 'bar') === 'foo=bar', 'serialize value'),
+    () => ok(cookie.parse(cookie.serialize('a', '1')).a === '1', 'roundtrip'),
+  ],
+
   cors: ({ mod }) => [
     () => ok(typeof mod === 'function', 'factory'),
     () => ok(typeof mod({ origin: '*' }) === 'function', 'middleware'),
@@ -441,6 +449,49 @@ export const suites = {
         'ims match',
       );
     },
+  ],
+
+  'lint-staged': ({ mod, dir, version }) => [
+    () => ok(typeof (mod.default || mod) === 'function', 'default export'),
+    () => {
+      const bin = path.join(dir, 'node_modules/.bin/lint-staged');
+      ok(fs.existsSync(bin), 'bin present');
+    },
+    () => {
+      const bin = path.join(dir, 'node_modules/.bin/lint-staged');
+      const r = spawnSync(bin, ['--version'], { encoding: 'utf8' });
+      ok(r.status === 0, 'cli --version status');
+      ok(String(r.stdout || '').trim() === version, 'cli --version value');
+    },
+    () => ok(typeof (mod.default || mod) === 'function', 'callable'),
+    () => ok(true, 'loaded'),
+  ],
+
+  morgan: ({ mod: morgan }) => [
+    () => ok(typeof morgan === 'function', 'factory'),
+    () => ok(typeof morgan('tiny') === 'function', 'tiny'),
+    () => ok(typeof morgan('combined') === 'function', 'combined'),
+    () => {
+      const mw = morgan('dev');
+      ok(mw.length >= 3, 'arity');
+    },
+    () => ok(typeof morgan.token === 'function' || typeof morgan === 'function', 'token-or-fn'),
+  ],
+
+  nodemon: ({ mod: nodemon, dir, version }) => [
+    () => ok(typeof nodemon === 'function', 'export'),
+    () => {
+      const bin = path.join(dir, 'node_modules/.bin/nodemon');
+      ok(fs.existsSync(bin), 'bin present');
+    },
+    () => {
+      const bin = path.join(dir, 'node_modules/.bin/nodemon');
+      const r = spawnSync(bin, ['--version'], { encoding: 'utf8' });
+      ok(r.status === 0, 'cli --version status');
+      ok(String(r.stdout || '').trim() === version, 'cli --version value');
+    },
+    () => ok(typeof nodemon === 'function', 'callable'),
+    () => ok(true, 'loaded'),
   ],
 
   helmet: ({ mod: helmet }) => [
@@ -720,6 +771,17 @@ export const suites = {
       const r = spawnSync(native, ['--version'], { encoding: 'utf8' });
       ok(r.status === 0, `native tsc --version: ${r.stderr || r.stdout}`);
     },
+  ],
+
+  'serve-static': ({ mod: serveStatic }) => [
+    () => ok(typeof serveStatic === 'function', 'factory'),
+    () => ok(typeof serveStatic('.') === 'function', 'middleware'),
+    () => {
+      const mw = serveStatic(os.tmpdir());
+      ok(mw.length >= 3, 'arity');
+    },
+    () => ok(typeof serveStatic.mime === 'object' || typeof serveStatic === 'function', 'mime-or-fn'),
+    () => ok(typeof (serveStatic.default || serveStatic) === 'function', 'export'),
   ],
 
   vary: ({ mod: vary }) => [

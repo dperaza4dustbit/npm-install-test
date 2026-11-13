@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Test-container entrypoint. Expects an already-running dual-registry proxy
-# at NPM_PROXY_URL (started by scripts/run.sh). Does not hold Pulp credentials.
+# Test-container entrypoint. Expects an already-running registry manager
+# (Nexus by default, or custom proxy) at NPM_PROXY_URL (started by
+# scripts/run.sh). Does not hold Pulp credentials.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -9,8 +10,8 @@ cd "${ROOT}"
 # shellcheck source=/dev/null
 source "${ROOT}/scripts/select-node.sh"
 
-export LIGHTWELL_AUTH_PROXY_PORT="${LIGHTWELL_AUTH_PROXY_PORT:-4874}"
-export NPM_PROXY_URL="${NPM_PROXY_URL:-http://npm-install-proxy:${LIGHTWELL_AUTH_PROXY_PORT}}"
+export NPM_PROXY_URL="${NPM_PROXY_URL:-http://npm-install-proxy:8081/repository/npm-group}"
+export NPM_PROXY_READY_URL="${NPM_PROXY_READY_URL:-http://npm-install-proxy:8081/service/rest/v1/status}"
 export PROXY_MISS_LOG="${PROXY_MISS_LOG:-/tmp/npm-proxy-misses.jsonl}"
 export ATTESTATION_OCI_PREFIX="${ATTESTATION_OCI_PREFIX:-quay.io/redhat-user-workloads/lightwell-javascript-tenant/javascript-validated/javascript-validated-build}"
 
@@ -35,6 +36,7 @@ run_functional() { node "${ROOT}/harness/run-functional.mjs" "$@"; }
 run_binaries() { node "${ROOT}/harness/check-binaries.mjs" "$@"; }
 run_install() { node "${ROOT}/harness/install-all.mjs" "$@"; }
 run_provenance() { node "${ROOT}/harness/provenance.mjs" "$@"; }
+run_packuments() { node "${ROOT}/harness/check-packuments.mjs" "$@"; }
 
 SUITE_NAMES=()
 SUITE_STATUS=()
@@ -72,8 +74,9 @@ print_final_summary() {
   return 0
 }
 
-echo "[entrypoint] waiting for dual-registry proxy ${NPM_PROXY_URL}"
-wait_http "${NPM_PROXY_URL}/-/ping" "dual-registry-proxy" || exit 1
+echo "[entrypoint] waiting for dual-registry manager ready ${NPM_PROXY_READY_URL}"
+wait_http "${NPM_PROXY_READY_URL}" "dual-registry-manager" || exit 1
+echo "[entrypoint] npm registry ${NPM_PROXY_URL}"
 
 case "${MODE}" in
   all)
@@ -101,8 +104,12 @@ case "${MODE}" in
     run_suite provenance run_provenance "$@"
     print_final_summary
     ;;
+  packuments)
+    run_suite packuments run_packuments "$@"
+    print_final_summary
+    ;;
   *)
-    echo "usage: entrypoint.sh [all|functional|binaries|install|provenance]" >&2
+    echo "usage: entrypoint.sh [all|functional|binaries|install|provenance|packuments]" >&2
     echo "  (proxy runs in a separate container — see ./scripts/run.sh)" >&2
     exit 2
     ;;
